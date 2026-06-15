@@ -1,0 +1,57 @@
+name: CI - Tests y Linting
+
+# Cuándo se ejecuta este workflow
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Descarga el código del repo al runner
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      # 2. Configura Python en el runner
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # 3. Instala dependencias
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install -r requirements.txt
+
+      # 4. Linting - revisa estilo y errores de sintaxis
+      - name: Lint con flake8
+        run: |
+          flake8 src/ tests/ --max-line-length=100 --extend-ignore=E203
+
+      # 5. Verifica formato con black (sin modificar archivos, solo chequea)
+      - name: Verificar formato con black
+        run: |
+          black --check src/ tests/
+
+      # 6. Entrenar el modelo (genera model.pkl necesario para los tests)
+      - name: Entrenar modelo
+        run: |
+          cd src
+          python train.py
+
+      # 7. Correr tests
+      - name: Ejecutar tests con pytest
+        run: |
+          pytest tests/ -v
+
+      # 8. Subir el modelo entrenado como artefacto (para inspección o uso posterior)
+      - name: Guardar modelo como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: trained-model
+          path: src/api/model.pkl
